@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: lldpd
+  labels:
+    tier: node
+    app: lldpd
+spec:
+  selector:
+    matchLabels:
+      name: lldpd
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        tier: node
+        app: lldpd
+        name: lldpd
+    spec:
+      hostNetwork: true
+      serviceAccount: lldpd
+      serviceAccountName: lldpd
+      nodeSelector:
+        kubernetes.io/arch: amd64
+      tolerations:
+      - operator: Exists
+        effect: NoSchedule
+      containers:
+      - name: lldpd
+        image: quay.io/xymox/lldpd-ubi8:0.0.1
+        imagePullPolicy: Always
+        command:
+        - /bin/bash
+        - -c
+        - --
+        args:
+        # - /usr/sbin/lldpd -p -V 6
+        # - /usr/sbin/lldpd -ddd -r -k -I 'eno*'
+        - sleep INF
+        env:
+        - name: LLDPD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: LLDPD_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: LLDPD_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: LLDPD_POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: LLDPD_POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: LLDPD_POD_SERVICE_ACCOUNT
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.serviceAccountName
+        resources:
+          requests:
+            memory: "200Mi"
+            cpu: "100m"
+          limits:
+            memory: "200Mi"
+            cpu: "250m"
+        securityContext:
+          runAsUser: 0
+          capabilities:
+            add:
+            - NET_ADMIN
+            - NET_RAW
+            - SYS_CHROOT

@@ -1,0 +1,49 @@
+FROM registry.redhat.io/ubi8
+
+# Debug toolkit
+#
+# Build it with:
+#
+# % podman build -t ubi8-debug-toolkit --rm -f Dockerfile.ubi8 .
+#
+# Run it with
+#
+# % oc run -i --tty --rm debug --image=quay.io/xymox/ubi8-debug-toolkit --restart=Never -- /bin/bash
+#
+
+MAINTAINER Philippe HUET <phuet@redhat.com>
+
+LABEL io.k8s.description="ubi8 OpenShift debug toolkit as a Pod." \
+      io.k8s.display-name="ubi8-debug-toolkit" \
+      io.openshift.tags="toolkit,debug,troubleshoot" \
+      io.openshift.non-scalable="true"
+
+# Install OpenLDAP Server, give it permissionst to bind to low ports
+RUN dnf install -y bind-utils \
+                   iputils \
+                   iproute \
+                   procps-ng \
+                   lsof \
+                   nmap-ncat \
+                   lldpd \
+                   nss_wrapper \
+        && \
+    dnf clean all -y
+
+RUN mkdir -p /run/lldpd/ /var/lib/lldpd \
+    && chown -R 1001:root /run/lldpd /var/lib/lldpd \
+    && chgrp -R root /run/lldpd /var/lib/lldpd \
+    && chmod -R  g+rwx /run/lldpd /var/lib/lldpd \
+    && chmod -R u=g /run/lldpd /var/lib/lldpd
+
+ENV HOME=/var/lib/lldpd
+WORKDIR ${HOME}
+
+COPY init-lldpd.sh check-liveness.sh entrypoint.sh /
+
+RUN chgrp root /etc/passwd && chmod g+rw /etc/passwd
+
+USER 1001
+ENTRYPOINT ["/entrypoint.sh"]
+
+CMD ["/bin/sh", "-c", "/usr/sbin/lldpd -ddd -r -k -I 'eno*'"]
